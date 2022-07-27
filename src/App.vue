@@ -1,7 +1,32 @@
 <template>
   <div class="container mx-auto flex flex-col items-center bg-gray-100 p-4">
+    <div
+      v-if="!coins.length"
+      class="fixed w-100 h-100 opacity-80 bg-purple-800 inset-0 z-50 flex items-center justify-center"
+    >
+      <svg
+        class="animate-spin -ml-1 mr-3 h-12 w-12 text-white"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewbox="0 0 24 24"
+      >
+        <circle
+          class="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentcolor"
+          stroke-width="4"
+        ></circle>
+        <path
+          class="opacity-75"
+          fill="currentcolor"
+          d="m4 12a8 8 0 018-8v0c5.373 0 0 5.373 0 12h4zm2 5.291a7.962 7.962 0 014 12h0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+        ></path>
+      </svg>
+    </div>
+
     <div class="container">
-      <div class="w-full my-4"></div>
       <section>
         <div class="flex">
           <div class="max-w-xs">
@@ -12,12 +37,29 @@
               <input
                 v-model="ticker"
                 @keydown.enter="add"
+                @keyup="completesUpdate"
                 type="text"
                 name="wallet"
                 id="wallet"
                 class="block w-full pr-10 border-gray-300 text-gray-900 focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm rounded-md"
                 placeholder="Например DOGE"
               />
+              <div
+                v-if="tickerCompletes.length"
+                class="flex bg-white shadow-md p-1 rounded-md flex-wrap"
+              >
+                <span
+                  v-for="(item, i) in tickerCompletes"
+                  :key="i"
+                  @click="add"
+                  class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
+                >
+                  {{ item }}
+                </span>
+              </div>
+              <div v-if="alreadyExist" class="text-sm text-red-600">
+                Такой тикер уже добавлен
+              </div>
             </div>
           </div>
         </div>
@@ -137,16 +179,24 @@ export default {
 
   data() {
     return {
-      ticker: "default",
+      ticker: "",
       tickers: [],
       sel: null,
-      graph: []
+      graph: [],
+      coins: [],
+      tickerCompletes: [],
+      alreadyExist: false
     };
   },
+
   methods: {
     add() {
+      if (this.tickerExist()) {
+        return;
+      }
+
       const currentTicker = {
-        name: this.ticker,
+        name: this.ticker.toUpperCase(),
         price: "-"
       };
 
@@ -157,16 +207,45 @@ export default {
         );
         const data = await f.json();
 
-        // currentTicker.price =
         this.tickers.find(t => t.name === currentTicker.name).price =
           data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
 
         if (this.sel?.name === currentTicker.name) {
           this.graph.push(data.USD);
         }
-        console.log(data.USD);
       }, 3000);
       this.ticker = "";
+      this.completesUpdate();
+    },
+
+    tickerExist() {
+      const tickerName = this.ticker.toUpperCase();
+      this.alreadyExist = this.tickers.some(
+        t => t.name.toUpperCase() === tickerName
+      );
+      return this.alreadyExist;
+    },
+
+    completesUpdate() {
+      const prefix = this.ticker.toUpperCase();
+      if (prefix === "") {
+        this.tickerCompletes = [];
+        return;
+      }
+      this.tickerCompletes = this.coins
+        .filter(
+          coin =>
+            coin.FullName.startsWith(prefix) || coin.Symbol.startsWith(prefix)
+        )
+        .slice(0, 4)
+        .map(coin => {
+          if (coin.FullName.startsWith(prefix)) {
+            return coin.FullName;
+          } else if (coin.Symbol.startsWith(prefix)) {
+            return coin.Symbol;
+          }
+        });
+      this.alreadyExist = false;
     },
 
     handleDelete(tickerToRemove) {
@@ -176,7 +255,6 @@ export default {
     normalizeGraph() {
       const maxValue = Math.max(...this.graph);
       const minValue = Math.min(...this.graph);
-      // console.log(this.graph);
       return this.graph.map(
         price => 5 + ((price - minValue) * 95) / (maxValue - minValue)
       );
@@ -186,6 +264,33 @@ export default {
       this.sel = ticker;
       this.graph = [];
     }
+  },
+  async created() {
+    const f = await fetch(
+      `https://min-api.cryptocompare.com/data/all/coinlist?summary=true`
+    );
+    const data = await f.json();
+    this.coins = Object.values(data.Data)
+      .map(coin => {
+        return { FullName: coin.FullName, Symbol: coin.Symbol };
+      })
+      .sort((a, b) => {
+        if (a.Symbol != b.Symbol) {
+          if (a.Symbol < b.Symbol) {
+            return -1;
+          } else {
+            return 1;
+          }
+        } else {
+          if (a.FullName < b.FullName) {
+            return -1;
+          } else if (a.FullName == b.FullName) {
+            return 0;
+          } else {
+            return 1;
+          }
+        }
+      });
   }
 };
 </script>
