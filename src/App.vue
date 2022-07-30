@@ -60,9 +60,6 @@
               <div v-if="tickerAlreadyExist" class="text-sm text-red-600">
                 Тикер уже добавлен
               </div>
-              <div v-if="tickerInvalid" class="text-sm text-red-600">
-                Тикер некорректен
-              </div>
             </div>
           </div>
         </div>
@@ -118,7 +115,12 @@
             }"
             class="bg-white overflow-hidden shadow rounded-lg border-purple-800 border-solid cursor-pointer"
           >
-            <div class="px-4 py-5 sm:p-6 text-center">
+            <div
+              :class="{
+                'bg-red-100': tickerInvalid
+              }"
+              class="px-4 py-5 sm:p-6 text-center"
+            >
               <dt class="text-sm font-medium text-gray-500 truncate">
                 {{ t.name }} - USD
               </dt>
@@ -246,11 +248,6 @@ export default {
     },
 
     add() {
-      this.tickerInvalid = !this.isTickerValid;
-      if (this.tickerInvalid) {
-        return;
-      }
-
       this.tickerAlreadyExist = this.isTickerRepeated;
       if (this.tickerAlreadyExist) {
         return;
@@ -294,11 +291,6 @@ export default {
   },
 
   computed: {
-    isTickerValid() {
-      const checkedTicker = this.ticker.toUpperCase();
-      return this.coins.some(c => c === checkedTicker);
-    },
-
     isTickerRepeated() {
       return this.tickers.some(t => t.name === this.completePrefix);
     },
