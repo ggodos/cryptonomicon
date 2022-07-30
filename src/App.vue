@@ -58,7 +58,10 @@
                 </span>
               </div>
               <div v-if="tickerAlreadyExist" class="text-sm text-red-600">
-                Такой тикер уже добавлен
+                Тикер уже добавлен
+              </div>
+              <div v-if="tickerInvalid" class="text-sm text-red-600">
+                Тикер некорректен
               </div>
             </div>
           </div>
@@ -199,11 +202,12 @@
 // [ ] 2. Таймер | Критичность: 5
 // [ ] 3. Количество запросов | Критичность: 4
 // [ ] 5. Обработка ошибок API | Критичность: 4
+// [ ] 12. Валидация данных | Критичность: 4
 // [x] 8. При удалении тикера не удаляется в localStorage| Критичность: 4
 // [x] 1. Одинаковый код в watch | Критичность: 3
+// [ ] 11. Хендл нескольких вкладок (Broadcast channgel api| localStorage) | Критичность: 3
 // [ ] 9. localStorage и анонимные вкладки | Критичность: 3
 // [ ] 7. График ужасно выглядит если будет много цен | Критичность: 2
-
 // [ ] 10. Магические строки и числа (URL, 5000 милиисекунд задержки, ключ локал стораджа, количество на странице)| Критичность: 1
 
 // Параллельно
@@ -230,7 +234,8 @@ export default {
 
       coins: [],
       tickerCompletes: [],
-      tickerAlreadyExist: false
+      tickerAlreadyExist: false,
+      tickerInvalid: false
     };
   },
 
@@ -261,7 +266,12 @@ export default {
     },
 
     add() {
-      this.tickerAlreadyExist = this.tickerRepeated;
+      this.tickerInvalid = !this.isTickerValid;
+      if (this.tickerInvalid) {
+        return;
+      }
+
+      this.tickerAlreadyExist = this.isTickerRepeated;
       if (this.tickerAlreadyExist) {
         return;
       }
@@ -286,13 +296,8 @@ export default {
       }
 
       this.tickerCompletes = this.coins
-        .filter(
-          coin =>
-            coin.FullName.startsWith(this.completePrefix) ||
-            coin.Symbol.startsWith(this.completePrefix)
-        )
-        .slice(0, 4)
-        .map(coin => coin.Symbol);
+        .filter(coin => coin.startsWith(this.completePrefix))
+        .slice(0, 4);
     },
 
     handleDelete(tickerToRemove) {
@@ -309,10 +314,13 @@ export default {
   },
 
   computed: {
-    tickerRepeated() {
-      return this.tickers.some(
-        t => t.name.toUpperCase() === this.completePrefix
-      );
+    isTickerValid() {
+      const checkedTicker = this.ticker.toUpperCase();
+      return this.coins.some(c => c === checkedTicker);
+    },
+
+    isTickerRepeated() {
+      return this.tickers.some(t => t.name === this.completePrefix);
     },
 
     completePrefix() {
@@ -334,6 +342,7 @@ export default {
     paginatedTickers() {
       return this.filteredTickers.slice(this.startIndex, this.endIndex);
     },
+
     hasNextPage() {
       return this.filteredTickers.length > this.endIndex;
     },
@@ -406,28 +415,11 @@ export default {
         );
       });
     }
+
     const data = await loadAllCoins();
     this.coins = Object.values(data.Data)
-      .map(coin => {
-        return { FullName: coin.FullName, Symbol: coin.Symbol };
-      })
-      .sort((a, b) => {
-        if (a.Symbol != b.Symbol) {
-          if (a.Symbol < b.Symbol) {
-            return -1;
-          } else {
-            return 1;
-          }
-        } else {
-          if (a.FullName < b.FullName) {
-            return -1;
-          } else if (a.FullName == b.FullName) {
-            return 0;
-          } else {
-            return 1;
-          }
-        }
-      });
+      .map(coin => coin.Symbol)
+      .sort();
   }
 };
 </script>
