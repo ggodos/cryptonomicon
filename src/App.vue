@@ -57,7 +57,7 @@
                   {{ item }}
                 </span>
               </div>
-              <div v-if="alreadyExist" class="text-sm text-red-600">
+              <div v-if="tickerAlreadyExist" class="text-sm text-red-600">
                 Такой тикер уже добавлен
               </div>
             </div>
@@ -120,7 +120,7 @@
                 {{ t.name }} - USD
               </dt>
               <dd class="mt-1 text-3xl font-semibold text-gray-900">
-                {{ t.price }}
+                {{ formatPrice(t.price) }}
               </dd>
             </div>
             <div class="w-full border-t border-gray-200"></div>
@@ -192,6 +192,8 @@
 </template>
 
 <script>
+// TODO:
+// [S]OLID
 // [x] 6. Наличие в состоянии ЗАВИСИМЫХ ДАННЫХ | Критичность: 5+
 // [ ] 4. Запросы напрямую внутри компонента (???) | Критичность: 5
 // [ ] 2. Таймер | Критичность: 5
@@ -207,6 +209,10 @@
 // Параллельно
 // [x] График сломан если везде одинаковые значения.
 // [x] При удалении тикера остаётся выбор
+// [?] Если не удалять данные то они не сохраняются в localStorage
+
+import { loadAllCoins, subscribeToTicker, unsubscribeFromTicker } from "./api";
+
 export default {
   name: "App",
 
@@ -224,35 +230,39 @@ export default {
 
       coins: [],
       tickerCompletes: [],
-      alreadyExist: false
+      tickerAlreadyExist: false
     };
   },
 
   methods: {
-    subscribeToUpdates(tickerName) {
-      setInterval(async () => {
-        const f = await fetch(
-          `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=1490c4962f40a8aad84eba5777a0641fd8e8b68e90177d4b188e786fd0a3cec7`
-        );
-        const data = await f.json();
+    updateTicker(tickerName, price) {
+      this.tickers
+        .filter(t => t.name == tickerName)
+        .forEach(t => {
+          if (t === this.selectedTicker) {
+            this.graph.push(price);
+          }
+          t.price = price;
+        });
+      this.tickers = [...this.tickers]; // Trigger watch
+    },
 
-        // console.log(tickerName, data?.USD);
-        this.tickers.find(t => t.name === tickerName).price =
-          data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-
-        if (this.selectedTicker?.name === tickerName) {
-          this.graph.push(data.USD);
-        }
-      }, 5000);
+    formatPrice(price) {
+      if (price === "-") {
+        return price;
+      }
+      return price > 1 ? price.toFixed(2) : price.toPrecision(2);
     },
 
     completeAdd(completeName) {
       this.ticker = completeName;
       this.add();
+      this.completesUpdate();
     },
 
     add() {
-      if (this.tickerExist()) {
+      this.tickerAlreadyExist = this.tickerRepeated;
+      if (this.tickerAlreadyExist) {
         return;
       }
 
@@ -263,34 +273,26 @@ export default {
 
       this.tickers = [...this.tickers, currentTicker];
       this.filter = "";
-
-      this.subscribeToUpdates(currentTicker.name);
       this.ticker = "";
-      this.completesUpdate();
-    },
-
-    tickerExist() {
-      const tickerName = this.ticker.toUpperCase();
-      this.alreadyExist = this.tickers.some(
-        t => t.name.toUpperCase() === tickerName
+      subscribeToTicker(currentTicker.name, newPrice =>
+        this.updateTicker(currentTicker.name, newPrice)
       );
-      return this.alreadyExist;
     },
 
     completesUpdate() {
-      const prefix = this.ticker.toUpperCase();
-      if (prefix === "") {
+      if (this.completePrefix === "") {
         this.tickerCompletes = [];
         return;
       }
+
       this.tickerCompletes = this.coins
         .filter(
           coin =>
-            coin.FullName.startsWith(prefix) || coin.Symbol.startsWith(prefix)
+            coin.FullName.startsWith(this.completePrefix) ||
+            coin.Symbol.startsWith(this.completePrefix)
         )
         .slice(0, 4)
         .map(coin => coin.Symbol);
-      this.alreadyExist = false;
     },
 
     handleDelete(tickerToRemove) {
@@ -298,6 +300,7 @@ export default {
       if (this.selectedTicker === tickerToRemove) {
         this.selectedTicker = null;
       }
+      unsubscribeFromTicker(tickerToRemove.name);
     },
 
     select(ticker) {
@@ -306,6 +309,16 @@ export default {
   },
 
   computed: {
+    tickerRepeated() {
+      return this.tickers.some(
+        t => t.name.toUpperCase() === this.completePrefix
+      );
+    },
+
+    completePrefix() {
+      return this.ticker.toUpperCase();
+    },
+
     startIndex() {
       return (this.page - 1) * 6;
     },
@@ -376,7 +389,6 @@ export default {
     const windowData = Object.fromEntries(
       new URL(window.location).searchParams.entries()
     );
-
     const VALID_KEYS = ["filter", "page"];
 
     VALID_KEYS.forEach(key => {
@@ -385,27 +397,16 @@ export default {
       }
     });
 
-    // if (windowData.filter) {
-    //   this.filter = windowData.filter;
-    // }
-
-    // if (windowData.page) {
-    //   this.page = Number(windowData.page);
-    // }
     const tickersData = localStorage.getItem("cryptonomicon-list");
-
     if (tickersData) {
       this.tickers = JSON.parse(tickersData);
       this.tickers.forEach(ticker => {
-        this.subscribeToUpdates(ticker.name);
+        subscribeToTicker(ticker.name, newPrice =>
+          this.updateTicker(ticker.name, newPrice)
+        );
       });
     }
-
-    // Fetch all coins
-    const f = await fetch(
-      `https://min-api.cryptocompare.com/data/all/coinlist?summary=true`
-    );
-    const data = await f.json();
+    const data = await loadAllCoins();
     this.coins = Object.values(data.Data)
       .map(coin => {
         return { FullName: coin.FullName, Symbol: coin.Symbol };
