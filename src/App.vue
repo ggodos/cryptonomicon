@@ -117,9 +117,9 @@
           >
             <div
               :class="{
-                'bg-red-100': tickerInvalid
+                'bg-red-100': t.tickerInvalid
               }"
-              class="px-4 py-5 sm:p-6 text-center"
+              class="bg-white px-4 py-5 sm:p-6 text-center"
             >
               <dt class="text-sm font-medium text-gray-500 truncate">
                 {{ t.name }} - USD
@@ -216,15 +216,14 @@ export default {
 
       coins: [],
       tickerCompletes: [],
-      tickerAlreadyExist: false,
-      tickerInvalid: false
+      tickerAlreadyExist: false
     };
   },
 
   methods: {
-    updateTicker(tickerName, price) {
+    updateTicker(ticker, price) {
       this.tickers
-        .filter(t => t.name == tickerName)
+        .filter(t => t.name === ticker)
         .forEach(t => {
           if (t === this.selectedTicker) {
             this.graph.push(price);
@@ -232,6 +231,14 @@ export default {
           t.price = price;
         });
       this.tickers = [...this.tickers]; // Trigger watch
+    },
+
+    devalidTicker(ticker) {
+      this.tickers
+        .filter(t => t.name === ticker)
+        .forEach(t => {
+          t.tickerInvalid = true;
+        });
     },
 
     formatPrice(price) {
@@ -255,14 +262,17 @@ export default {
 
       const currentTicker = {
         name: this.ticker.toUpperCase(),
-        price: "-"
+        price: "-",
+        tickerInvalid: false
       };
 
       this.tickers = [...this.tickers, currentTicker];
       this.filter = "";
       this.ticker = "";
-      subscribeToTicker(currentTicker.name, newPrice =>
-        this.updateTicker(currentTicker.name, newPrice)
+      subscribeToTicker(
+        currentTicker.name,
+        newPrice => this.updateTicker(currentTicker.name, newPrice),
+        () => this.devalidTicker(currentTicker.name)
       );
     },
 
@@ -370,7 +380,7 @@ export default {
     const windowData = Object.fromEntries(
       new URL(window.location).searchParams.entries()
     );
-    const VALID_KEYS = ["filter", "page"];
+    const VALID_KEYS = ["filter", "page", "tickerInvalid"];
 
     VALID_KEYS.forEach(key => {
       if (windowData[key]) {
@@ -382,8 +392,10 @@ export default {
     if (tickersData) {
       this.tickers = JSON.parse(tickersData);
       this.tickers.forEach(ticker => {
-        subscribeToTicker(ticker.name, newPrice =>
-          this.updateTicker(ticker.name, newPrice)
+        subscribeToTicker(
+          ticker.name,
+          newPrice => this.updateTicker(ticker.name, newPrice),
+          () => this.devalidTicker(ticker.name)
         );
       });
     }
