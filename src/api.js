@@ -6,6 +6,8 @@ const tickersErrorHandlers = new Map();
 const socket = new WebSocket(
   `wss://streamer.cryptocompare.com/v2?api_key=${API_KEY}`
 );
+const ALL_COINS_URL =
+  "https://min-api.cryptocompare.com/data/all/coinlist?summary=true";
 
 const AGGREGATE_INDEX = "5";
 const INVALID_SUB_INDEX = "500";
@@ -19,7 +21,9 @@ socket.addEventListener("message", e => {
     PRICE: newPrice,
     PARAMETER: parameter
   } = JSON.parse(e.data);
+
   if (type == INVALID_SUB_INDEX && message == INVALID_SUB_MESSAGE) {
+    // parameter: [index, indexType, ticker, currency]
     const ticker = parameter.split("~")[2];
     const errorsHandlers = tickersErrorHandlers.get(ticker) ?? [];
     errorsHandlers.forEach(fn => fn());
@@ -30,6 +34,7 @@ socket.addEventListener("message", e => {
   if (type != AGGREGATE_INDEX || newPrice === undefined) {
     return;
   }
+
   const handlers = tickersHandlers.get(currency) ?? [];
   handlers.forEach(fn => fn(newPrice));
 });
@@ -51,17 +56,17 @@ function sendToWebSocket(message) {
   );
 }
 
-function subscribeToTickerOnWs(tickerName) {
+function subscribeToTickerOnWs(tickerName, currency = "USD") {
   sendToWebSocket({
     action: "SubAdd",
-    subs: [`5~CCCAGG~${tickerName}~USD`]
+    subs: [`5~CCCAGG~${tickerName}~${currency}`]
   });
 }
 
-function unsubscribeFromTickerOnWs(tickerName) {
+function unsubscribeFromTickerOnWs(tickerName, currency = "USD") {
   sendToWebSocket({
     action: "SubRemove",
-    subs: [`5~CCCAGG~${tickerName}~USD`]
+    subs: [`5~CCCAGG~${tickerName}~${currency}`]
   });
 }
 
@@ -74,7 +79,7 @@ export const subscribeToTicker = (tickerName, cb, errorCb = undefined) => {
     tickersErrorHandlers.set(tickerName, [...errors, errorCb]);
   }
 
-  subscribeToTickerOnWs(tickerName);
+  subscribeToTickerOnWs(tickerName, "USD");
 };
 
 export const unsubscribeFromTicker = tickerName => {
@@ -83,7 +88,4 @@ export const unsubscribeFromTicker = tickerName => {
   unsubscribeFromTickerOnWs(tickerName);
 };
 
-export const loadAllCoins = () =>
-  fetch(
-    `https://min-api.cryptocompare.com/data/all/coinlist?summary=true`
-  ).then(r => r.json());
+export const loadAllCoins = () => fetch(ALL_COINS_URL).then(r => r.json());

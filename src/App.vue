@@ -117,7 +117,7 @@
           >
             <div
               :class="{
-                'bg-red-100': t.tickerInvalid
+                'bg-red-100': !t.tickerValid
               }"
               class="bg-white px-4 py-5 sm:p-6 text-center"
             >
@@ -199,6 +199,10 @@
 <script>
 import { loadAllCoins, subscribeToTicker, unsubscribeFromTicker } from "./api";
 
+const visibleTickers = 6;
+const completesQuantity = 4;
+const minGraphSizePercent = 5;
+
 export default {
   name: "App",
 
@@ -228,16 +232,17 @@ export default {
           if (t === this.selectedTicker) {
             this.graph.push(price);
           }
+          t.tickerValid = true;
           t.price = price;
         });
       this.tickers = [...this.tickers]; // Trigger watch
     },
 
-    makeTickerInvalid(ticker) {
+    changeTickerValidity(ticker, valid = true) {
       this.tickers
         .filter(t => t.name === ticker)
         .forEach(t => {
-          t.tickerInvalid = true;
+          t.tickerValid = valid;
         });
     },
 
@@ -263,16 +268,17 @@ export default {
       const currentTicker = {
         name: this.ticker.toUpperCase(),
         price: "-",
-        tickerInvalid: false
+        tickerValid: true
       };
 
       this.tickers = [...this.tickers, currentTicker];
       this.filter = "";
       this.ticker = "";
+
       subscribeToTicker(
         currentTicker.name,
         newPrice => this.updateTicker(currentTicker.name, newPrice),
-        () => this.makeTickerInvalid(currentTicker.name)
+        () => this.changeTickerValidity(currentTicker.name, false)
       );
     },
 
@@ -284,7 +290,7 @@ export default {
 
       this.tickerCompletes = this.coins
         .filter(coin => coin.startsWith(this.completePrefix))
-        .slice(0, 4);
+        .slice(0, completesQuantity);
     },
 
     handleDelete(tickerToRemove) {
@@ -310,11 +316,11 @@ export default {
     },
 
     startIndex() {
-      return (this.page - 1) * 6;
+      return (this.page - 1) * visibleTickers;
     },
 
     endIndex() {
-      return this.page * 6;
+      return this.page * visibleTickers;
     },
 
     filteredTickers() {
@@ -337,7 +343,10 @@ export default {
         return this.graph.map(() => 50);
       }
       return this.graph.map(
-        price => 5 + ((price - minValue) * 95) / (maxValue - minValue)
+        price =>
+          minGraphSizePercent +
+          ((price - minValue) * (100 - minGraphSizePercent)) /
+            (maxValue - minValue)
       );
     },
 
@@ -376,6 +385,7 @@ export default {
       );
     }
   },
+
   async created() {
     const windowData = Object.fromEntries(
       new URL(window.location).searchParams.entries()
@@ -395,7 +405,7 @@ export default {
         subscribeToTicker(
           ticker.name,
           newPrice => this.updateTicker(ticker.name, newPrice),
-          () => this.makeTickerInvalid(ticker.name)
+          () => this.changeTickerValidity(ticker.name, false)
         );
       });
     }
