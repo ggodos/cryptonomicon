@@ -233,7 +233,7 @@ export default {
       this.tickers = [...this.tickers]; // Trigger watch
     },
 
-    devalidTicker(ticker) {
+    makeTickerInvalid(ticker) {
       this.tickers
         .filter(t => t.name === ticker)
         .forEach(t => {
@@ -272,7 +272,7 @@ export default {
       subscribeToTicker(
         currentTicker.name,
         newPrice => this.updateTicker(currentTicker.name, newPrice),
-        () => this.devalidTicker(currentTicker.name)
+        () => this.makeTickerInvalid(currentTicker.name)
       );
     },
 
@@ -380,7 +380,7 @@ export default {
     const windowData = Object.fromEntries(
       new URL(window.location).searchParams.entries()
     );
-    const VALID_KEYS = ["filter", "page", "tickerInvalid"];
+    const VALID_KEYS = ["filter", "page"];
 
     VALID_KEYS.forEach(key => {
       if (windowData[key]) {
@@ -395,7 +395,7 @@ export default {
         subscribeToTicker(
           ticker.name,
           newPrice => this.updateTicker(ticker.name, newPrice),
-          () => this.devalidTicker(ticker.name)
+          () => this.makeTickerInvalid(ticker.name)
         );
       });
     }

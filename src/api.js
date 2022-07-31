@@ -65,12 +65,14 @@ function unsubscribeFromTickerOnWs(tickerName) {
   });
 }
 
-export const subscribeToTicker = (tickerName, cb, errorCb = () => {}) => {
+export const subscribeToTicker = (tickerName, cb, errorCb = undefined) => {
   const subscribers = tickersHandlers.get(tickerName) || [];
   tickersHandlers.set(tickerName, [...subscribers, cb]);
 
-  const errors = tickersErrorHandlers.get(tickerName) || [];
-  tickersErrorHandlers.set(tickerName, [...errors, errorCb]);
+  if (errorCb) {
+    const errors = tickersErrorHandlers.get(tickerName) || [];
+    tickersErrorHandlers.set(tickerName, [...errors, errorCb]);
+  }
 
   subscribeToTickerOnWs(tickerName);
 };
