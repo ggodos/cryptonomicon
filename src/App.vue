@@ -238,7 +238,6 @@ export default {
           if (t === this.selectedTicker) {
             this.graph.push(price);
           }
-          t.tickerValid = true;
           t.price = price;
         });
       this.tickers = [...this.tickers]; // Trigger watch
