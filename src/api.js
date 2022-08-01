@@ -171,7 +171,11 @@ export const subscribeToTicker = (tickerName, cb, errorCb = undefined) => {
 export const unsubscribeFromTicker = tickerName => {
   tickersHandlers.delete(tickerName);
   tickersErrorHandlers.delete(tickerName);
-  unsubscribeFromTickerOnWs(tickerName);
+  console.log(exchangeDependencies.get(tickerName));
+  const exchangeCurrency = exchangeDependencies.get(tickerName);
+  if (exchangeCurrency && exchangeCurrency.size == 0) {
+    unsubscribeFromTickerOnWs(tickerName);
+  }
 };
 
 export const loadAllCoins = () => fetch(ALL_COINS_URL).then(r => r.json());
