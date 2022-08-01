@@ -60,6 +60,9 @@
               <div v-if="tickerAlreadyExist" class="text-sm text-red-600">
                 Тикер уже добавлен
               </div>
+              <div v-if="tickerInvalid" class="text-sm text-red-600">
+                Тикер не корректен
+              </div>
             </div>
           </div>
         </div>
@@ -220,7 +223,8 @@ export default {
 
       coins: [],
       tickerCompletes: [],
-      tickerAlreadyExist: false
+      tickerAlreadyExist: false,
+      tickerInvalid: false
     };
   },
 
@@ -260,6 +264,11 @@ export default {
     },
 
     add() {
+      this.tickerInvalid = !this.isTickerValid;
+      if (this.tickerInvalid) {
+        return;
+      }
+
       this.tickerAlreadyExist = this.isTickerRepeated;
       if (this.tickerAlreadyExist) {
         return;
@@ -298,7 +307,9 @@ export default {
       if (this.selectedTicker === tickerToRemove) {
         this.selectedTicker = null;
       }
-      unsubscribeFromTicker(tickerToRemove.name);
+      if (tickerToRemove.tickerValid) {
+        unsubscribeFromTicker(tickerToRemove.name);
+      }
     },
 
     select(ticker) {
@@ -307,6 +318,11 @@ export default {
   },
 
   computed: {
+    isTickerValid() {
+      const tickerToCheck = this.ticker.toUpperCase();
+      return this.coins.some(c => c == tickerToCheck);
+    },
+
     isTickerRepeated() {
       return this.tickers.some(t => t.name === this.completePrefix);
     },
