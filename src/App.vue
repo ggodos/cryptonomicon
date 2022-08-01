@@ -202,9 +202,11 @@
 <script>
 import { loadAllCoins, subscribeToTicker, unsubscribeFromTicker } from "./api";
 
-const visibleTickers = 6;
-const completesQuantity = 4;
-const minGraphSizePercent = 5;
+const VISIBLE_TICKERS = 6;
+const COMPLETES_QUANTITY = 4;
+const MIN_GRAPH_SIZE_PERCENT = 5;
+const PRICE_FIXED_DECIMAL = 2;
+const LOW_PRICE_PRECISION = 4;
 
 export default {
   name: "App",
@@ -254,7 +256,9 @@ export default {
       if (price === "-") {
         return price;
       }
-      return price > 1 ? price.toFixed(2) : price.toPrecision(2);
+      return price > 1
+        ? price.toFixed(PRICE_FIXED_DECIMAL)
+        : price.toPrecision(LOW_PRICE_PRECISION);
     },
 
     completeAdd(completeName) {
@@ -299,7 +303,7 @@ export default {
 
       this.tickerCompletes = this.coins
         .filter(coin => coin.startsWith(this.completePrefix))
-        .slice(0, completesQuantity);
+        .slice(0, COMPLETES_QUANTITY);
     },
 
     handleDelete(tickerToRemove) {
@@ -332,11 +336,11 @@ export default {
     },
 
     startIndex() {
-      return (this.page - 1) * visibleTickers;
+      return (this.page - 1) * VISIBLE_TICKERS;
     },
 
     endIndex() {
-      return this.page * visibleTickers;
+      return this.page * VISIBLE_TICKERS;
     },
 
     filteredTickers() {
@@ -360,8 +364,8 @@ export default {
       }
       return this.graph.map(
         price =>
-          minGraphSizePercent +
-          ((price - minValue) * (100 - minGraphSizePercent)) /
+          MIN_GRAPH_SIZE_PERCENT +
+          ((price - minValue) * (100 - MIN_GRAPH_SIZE_PERCENT)) /
             (maxValue - minValue)
       );
     },
