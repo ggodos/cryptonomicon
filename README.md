@@ -27,3 +27,9 @@ npm lint
 ### Customize configuration
 
 See [Configuration Reference](https://cli.vuejs.org/config/).
+
+## TODO
+
+- [ ] SharedWorkers (Для работы нескольких вкладок)
+- [ ] LocalStorage и анонимные вкладки
+- [ ] Рефактор графа
