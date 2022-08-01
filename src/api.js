@@ -46,31 +46,13 @@ socket.addEventListener("message", e => {
 
   // can't subscribe
   if (type == INVALID_SUB_INDEX && message == INVALID_SUB_MESSAGE) {
-    const [currency, referenceCurrency] = extractFromParameter(parameter).slice(
-      2,
-      4
-    );
-    handleUnsubscribed(currency, referenceCurrency);
+    handleUnsubscribed(parameter);
     return;
   }
 
   // unsub if use cross exchange
   if (message == SUBSCRIBTION_UNRECOGNIZED) {
-    const currency = extractFromParameter(parameter)[2];
-    const referenceCurrency = subscribesForExchange.get(currency);
-    unsubscribeFromTickerOnWs(currency, referenceCurrency);
-    subscribesForExchange.delete(currency);
-    const exchangeCurrency = exchangeDependencies.get(referenceCurrency);
-    if (exchangeCurrency) {
-      exchangeCurrency.delete(currency);
-      // doesn't have dependencies and don't have ticker
-      if (
-        exchangeCurrency.size == 0 &&
-        !tickersHandlers.get(referenceCurrency)
-      ) {
-        unsubscribeFromTickerOnWs(referenceCurrency, "USD");
-      }
-    }
+    unsubscribeCrossExchange(parameter);
     return;
   }
 
@@ -81,26 +63,18 @@ socket.addEventListener("message", e => {
 
   // cross exchange usage
   if (referenceCurrency != "USD") {
-    if (!exchangeDependencies.get(referenceCurrency)) {
-      exchangeDependencies.set(referenceCurrency, new Map());
-    }
-
-    subscribesForExchange.set(currency, referenceCurrency);
-    exchangeDependencies.get(referenceCurrency).set(currency, 1 / newPrice);
-    subscribeToTickerOnWs(referenceCurrency, "USD");
+    useCrossExchange(currency, referenceCurrency, newPrice);
     return;
   }
 
   const currencyHandlers = tickersHandlers.get(currency) ?? [];
   currencyHandlers.forEach(fn => fn(newPrice));
 
-  const deps = exchangeDependencies.get(currency);
-  if (deps) {
-    deps.forEach((price, curr) => {
-      const dependeciesHandlers = tickersHandlers.get(curr) ?? [];
-      dependeciesHandlers.forEach(fn => fn((1 / price) * newPrice));
-    });
-  }
+  const deps = exchangeDependencies.get(currency) ?? [];
+  deps.forEach((price, curr) => {
+    const dependeciesHandlers = tickersHandlers.get(curr) ?? [];
+    dependeciesHandlers.forEach(fn => fn((1 / price) * newPrice));
+  });
 });
 
 /**
@@ -111,7 +85,36 @@ function extractFromParameter(parameter) {
   return parameter.split("~");
 }
 
-function handleUnsubscribed(currency, referenceCurrency) {
+function useCrossExchange(currency, referenceCurrency, price) {
+  if (!exchangeDependencies.get(referenceCurrency)) {
+    exchangeDependencies.set(referenceCurrency, new Map());
+  }
+
+  subscribesForExchange.set(currency, referenceCurrency);
+  exchangeDependencies.get(referenceCurrency).set(currency, 1 / price);
+  subscribeToTickerOnWs(referenceCurrency, "USD");
+}
+
+function unsubscribeCrossExchange(parameter) {
+  const currency = extractFromParameter(parameter)[2];
+  const referenceCurrency = subscribesForExchange.get(currency);
+  unsubscribeFromTickerOnWs(currency, referenceCurrency);
+  subscribesForExchange.delete(currency);
+  const exchangeCurrency = exchangeDependencies.get(referenceCurrency);
+  if (exchangeCurrency) {
+    exchangeCurrency.delete(currency);
+    // doesn't have dependencies and don't have ticker
+    if (exchangeCurrency.size == 0 && !tickersHandlers.get(referenceCurrency)) {
+      unsubscribeFromTickerOnWs(referenceCurrency, "USD");
+    }
+  }
+}
+
+function handleUnsubscribed(parameter) {
+  const [currency, referenceCurrency] = extractFromParameter(parameter).slice(
+    2,
+    4
+  );
   const nextReference = exchangeRoute[referenceCurrency];
   if (nextReference) {
     subscribeToTickerOnWs(currency, nextReference);
