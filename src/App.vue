@@ -278,7 +278,7 @@ export default {
       }
 
       const currentTicker = {
-        name: this.ticker.toUpperCase(),
+        name: this.normalizedTicker,
         price: "-",
         tickerValid: true
       };
@@ -295,13 +295,13 @@ export default {
     },
 
     completesUpdate() {
-      if (this.completePrefix === "") {
+      if (this.normalizedTicker === "") {
         this.tickerCompletes = [];
         return;
       }
 
       this.tickerCompletes = this.coins
-        .filter(coin => coin.startsWith(this.completePrefix))
+        .filter(coin => coin.startsWith(this.normalizedTicker))
         .slice(0, COMPLETES_QUANTITY);
     },
 
@@ -321,17 +321,17 @@ export default {
   },
 
   computed: {
+    normalizedTicker() {
+      return this.ticker.toUpperCase();
+    },
+
     isTickerValid() {
-      const tickerToCheck = this.ticker.toUpperCase();
+      const tickerToCheck = this.normalizedTicker;
       return this.coins.some(c => c == tickerToCheck);
     },
 
     isTickerRepeated() {
-      return this.tickers.some(t => t.name === this.completePrefix);
-    },
-
-    completePrefix() {
-      return this.ticker.toUpperCase();
+      return this.tickers.some(t => t.name === this.normalizedTicker);
     },
 
     startIndex() {
@@ -343,10 +343,13 @@ export default {
     },
 
     filteredTickers() {
-      return this.tickers.filter(ticker => ticker.name.includes(this.filter));
+      return this.tickers.filter(ticker =>
+        ticker.name.includes(this.filter.toUpperCase())
+      );
     },
 
     paginatedTickers() {
+      // console.log(this.filteredTickers);
       return this.filteredTickers.slice(this.startIndex, this.endIndex);
     },
 
