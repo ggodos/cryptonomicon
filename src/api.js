@@ -91,10 +91,12 @@ socket.addEventListener("message", e => {
   currencyHandlers.forEach(fn => fn(newPrice));
 
   const deps = exchangeDependencies.get(currency);
-  deps.forEach((price, curr) => {
-    const dependeciesHandlers = tickersHandlers.get(curr) ?? [];
-    dependeciesHandlers.forEach(fn => fn((1 / price) * newPrice));
-  });
+  if (deps) {
+    deps.forEach((price, curr) => {
+      const dependeciesHandlers = tickersHandlers.get(curr) ?? [];
+      dependeciesHandlers.forEach(fn => fn((1 / price) * newPrice));
+    });
+  }
 });
 
 /**
