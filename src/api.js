@@ -61,11 +61,15 @@ socket.addEventListener("message", e => {
     unsubscribeFromTickerOnWs(currency, referenceCurrency);
     subscribesForExchange.delete(currency);
     const exchangeCurrency = exchangeDependencies.get(referenceCurrency);
-    exchangeCurrency.delete(currency);
-
-    // doesn't have dependencies and don't have ticker
-    if (exchangeCurrency.size == 0 && !tickersHandlers.get(referenceCurrency)) {
-      unsubscribeFromTickerOnWs(referenceCurrency, "USD");
+    if (exchangeCurrency) {
+      exchangeCurrency.delete(currency);
+      // doesn't have dependencies and don't have ticker
+      if (
+        exchangeCurrency.size == 0 &&
+        !tickersHandlers.get(referenceCurrency)
+      ) {
+        unsubscribeFromTickerOnWs(referenceCurrency, "USD");
+      }
     }
     return;
   }
