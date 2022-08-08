@@ -115,7 +115,6 @@ function useCrossExchange(fromCoin, toCoin, price) {
 
   subscribesForExchange.set(fromCoin, toCoin);
   exchangeDependencies.get(toCoin).set(fromCoin, 1 / price);
-  addDependencyToWs(fromCoin, toCoin);
   subscribeToCoinOnWs(toCoin, "USD");
 }
 
@@ -148,6 +147,7 @@ function handleUnsubscribed(parameter) {
   if (subscribesForExchange.get(fromCoin)) {
     return;
   }
+
   const nextReference = exchangeRoute[toCoin];
   console.log(fromCoin, toCoin, nextReference);
   if (nextReference) {
@@ -161,10 +161,11 @@ function handleUnsubscribed(parameter) {
 }
 
 function addDependencyToWs(fromCoin, toCoin) {
-  console.log(`add deps ${fromCoin} and ${toCoin}`);
+  // console.log(`add deps ${fromCoin} and ${toCoin}`);
   postMessageToWorker({
     command: "addDependency",
-    data: { fromCoin: fromCoin, toCoin: toCoin },
+    fromCoin: fromCoin,
+    toCoin: toCoin,
     id: id
   });
 }
@@ -176,20 +177,22 @@ function subscribeToCoinOnWs(fromCoin, toCoin = "USD") {
       subs: [`5~CCCAGG~${fromCoin}~${toCoin}`]
     },
     command: "sub",
-    coin: fromCoin,
+    fromCoin: fromCoin,
+    toCoin: toCoin,
     id: id
   });
 }
 
 function unsubscribeFromCoinOnWs(fromCoin, toCoin = "USD") {
-  console.log(`UNSUB WS ${fromCoin} ${toCoin}`);
+  // console.log(`UNSUB WS ${fromCoin} ${toCoin}`);
   postMessageToWorker({
     data: {
       action: "SubRemove",
       subs: [`5~CCCAGG~${fromCoin}~${toCoin}`]
     },
     command: "unsub",
-    coin: fromCoin,
+    fromCoin: fromCoin,
+    toCoin: toCoin,
     id: id
   });
 }
@@ -202,22 +205,18 @@ export const subscribeToCoin = (coin, cb, errorCb = undefined) => {
     const errors = tickersErrorHandlers.get(coin) || [];
     tickersErrorHandlers.set(coin, [...errors, errorCb]);
   }
-  console.log(id, coin);
-
   subscribeToCoinOnWs(coin, "USD");
 };
 
 export const unsubscribeFromCoin = coin => {
-  console.log(`UNSUB MAIN ${coin}`);
+  // console.log(`UNSUB MAIN ${coin}`);
   tickersHandlers.delete(coin);
   tickersErrorHandlers.delete(coin);
 
-  unsubscribeFromCoinOnWs(coin);
+  unsubscribeFromCoinOnWs(coin, "USD");
 };
 
 export const loadAllCoins = () => fetch(ALL_COINS_URL).then(r => r.json());
-
-window.exchangeDependencies = exchangeDependencies;
 
 addEventListener("beforeunload", () => {
   worker.port.postMessage({ command: "closing", id: id });

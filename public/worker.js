@@ -11,6 +11,8 @@ const ws = new WebSocket(
  */
 const coinsSubscribes = new Map();
 const idToPortMap = new Map();
+const dependencies = new Map();
+const exchangeDeps = new Map();
 
 function postToAllPorts(msg) {
   for (const port of idToPortMap.values()) {
@@ -47,20 +49,18 @@ self.onconnect = function (e) {
   const port = e.ports[0];
 
   port.onmessage = event => {
-    const { data, command, coin, id } = event.data;
+    const { data, command, fromCoin: coin, toCoin: currency, id } = event.data;
     if (coin && !coinsSubscribes.get(coin)) {
       coinsSubscribes.set(coin, new Set());
     }
 
     switch (command) {
       case "sub":
-        handleSubscribe(coin, id, data, port);
-        break;
-      case "addDependency":
-        handleAddDependency();
+        idToPortMap.set(id, port);
+        handleSubscribe(data, id, coin, currency);
         break;
       case "unsub":
-        handleUnsubscribe(coin, id, data);
+        handleUnsubscribe(data, id, coin, currency);
         break;
       case "closing":
         handleClosing(id);
@@ -69,33 +69,42 @@ self.onconnect = function (e) {
   };
 };
 
-function handleAddDependency() {
-  return;
-}
-
-function handleSubscribe(coin, id, data, port) {
-  if (!id) {
-    return;
-  }
+function handleSubscribe(data, id, coin, currency) {
   console.log(`Sub to ${coin} from ${id}`);
 
-  idToPortMap.set(id, port);
+  coinsSubscribes.get(coin).add(id);
   sendToWebSocket(data);
 
-  coinsSubscribes.get(coin).add(id);
+  // add deps to exchange fromCoin
+  if (currency != "USD") {
+    dependencies.set(coin, currency); //, [...(dependencies.get(coin) || []), currency]);
+    exchangeDeps.set(currency, [...(exchangeDeps.get(currency) ?? []), coin]);
+  }
 }
 
-function handleUnsubscribe(coin, id, data) {
-  console.log(`Unsub from ${coin} from ${id}`);
-  if (coinsSubscribes.get(coin).size == 0) {
-    sendToWebSocket(data);
-  }
-
-  coinsSubscribes.get(coin).delete(id);
+// eslint-disable-next-line no-unused-vars
+function handleUnsubscribe(data, id, coin, refCurrency) {
+  // if refCurrency "USD"
+  //   coin("BTC") have thing that depends on him?
+  //   yes: none
+  //   no: ws.unsub(coin, "USD") // sendToWebSocket(data);
+  //
+  // else
+  //   ws.unsub(coin, refCurrency) // sendToWebSocket(data);
+  //   unsubOnWs(data, id, refCurrency, "USD")
+  //
 }
 
 function handleClosing(id) {
   console.log(`close id is ${id}`);
   idToPortMap.delete(id);
   console.log(`closing port for id ${id}`);
+}
+
+function unsubOnWs(id, coin, refCurrency) {
+  const data = {
+    action: "SubRemove",
+    subs: [`5~CCCAGG~${coin}~${refCurrency}`]
+  };
+  handleUnsubscribe(data, id, coin, refCurrency);
 }
