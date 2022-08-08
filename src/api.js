@@ -1,6 +1,7 @@
-const API_KEY =
-  "1490c4962f40a8aad84eba5777a0641fd8e8b68e90177d4b188e786fd0a3cec7";
+import { v4 as uuidv4 } from "uuid";
 
+const worker = new SharedWorker("/worker.js");
+const id = uuidv4();
 const ALL_COINS_URL =
   "https://min-api.cryptocompare.com/data/all/coinlist?summary=true";
 
@@ -25,24 +26,35 @@ const exchangeRoute = {
   BTC: "ETH"
 };
 
-const socket = new WebSocket(
-  `wss://streamer.cryptocompare.com/v2?api_key=${API_KEY}`
-);
-
 const AGGREGATE_INDEX = "5";
 const INVALID_SUB_INDEX = "500";
 const INVALID_SUB_MESSAGE = "INVALID_SUB";
 const SUBSCRIBTION_UNRECOGNIZED = "SUBSCRIPTION_UNRECOGNIZED";
+const ALREADY_ACTIVE = "SUBSCRIPTION_ALREADY_ACTIVE";
 
-socket.addEventListener("message", e => {
+// Handle web socket messages
+worker.port.start();
+worker.port.onmessage = event => {
+  handleMessageFromPort(event.data);
+};
+
+function handleMessageFromPort(data) {
   const {
     TYPE: type,
     MESSAGE: message,
-    FROMSYMBOL: currency,
-    TOSYMBOL: referenceCurrency,
+    FROMSYMBOL: fromCoin,
+    TOSYMBOL: toCoin,
     PRICE: newPrice,
     PARAMETER: parameter
-  } = JSON.parse(e.data);
+  } = data;
+  // console.log(
+  //   `type: ${type}\nfrom: ${fromCoin}\nto: ${toCoin}\nprice: ${newPrice}\n`
+  // );
+
+  if (message == ALREADY_ACTIVE) {
+    // handleAlreadyActive(parameter);
+    return;
+  }
 
   // can't subscribe
   if (type == INVALID_SUB_INDEX && message == INVALID_SUB_MESSAGE) {
@@ -62,120 +74,151 @@ socket.addEventListener("message", e => {
   }
 
   // cross exchange usage
-  if (referenceCurrency != "USD") {
-    useCrossExchange(currency, referenceCurrency, newPrice);
+  if (toCoin != "USD") {
+    useCrossExchange(fromCoin, toCoin, newPrice);
     return;
   }
 
-  const currencyHandlers = tickersHandlers.get(currency) ?? [];
-  currencyHandlers.forEach(fn => fn(newPrice));
+  const coinsHandlers = tickersHandlers.get(fromCoin) ?? [];
+  coinsHandlers.forEach(fn => fn(newPrice));
 
-  const deps = exchangeDependencies.get(currency) ?? [];
+  const deps = exchangeDependencies.get(fromCoin) ?? [];
   deps.forEach((price, curr) => {
     const dependeciesHandlers = tickersHandlers.get(curr) ?? [];
     dependeciesHandlers.forEach(fn => fn((1 / price) * newPrice));
   });
-});
+}
+
+function postMessageToWorker(data) {
+  worker.port.postMessage(data);
+}
 
 /**
  * @param {string} parameter
- * @return {Array.<{index: string, indexType: string, currency: string, referenceCurrency: string}>}
+ * @return {Array.<{index: string, indexType: string, fromCoin: string, toCoin: string}>}
  */
 function extractFromParameter(parameter) {
   return parameter.split("~");
 }
 
-function useCrossExchange(currency, referenceCurrency, price) {
-  if (!exchangeDependencies.get(referenceCurrency)) {
-    exchangeDependencies.set(referenceCurrency, new Map());
+// function handleAlreadyActive(parameter) {
+//   const [fromCoin, toCoin] = extractFromParameter(parameter).slice(2, 4);
+//   if (toCoin != "USD") {
+//     addDependencyToWs(fromCoin, toCoin);
+//   }
+// }
+
+function useCrossExchange(fromCoin, toCoin, price) {
+  if (!exchangeDependencies.get(toCoin)) {
+    exchangeDependencies.set(toCoin, new Map());
   }
 
-  subscribesForExchange.set(currency, referenceCurrency);
-  exchangeDependencies.get(referenceCurrency).set(currency, 1 / price);
-  subscribeToTickerOnWs(referenceCurrency, "USD");
+  subscribesForExchange.set(fromCoin, toCoin);
+  exchangeDependencies.get(toCoin).set(fromCoin, 1 / price);
+  // addDependencyToWs(fromCoin, toCoin);
+  subscribeToCoinOnWs(toCoin, "USD");
 }
 
 function unsubscribeCrossExchange(parameter) {
-  const currency = extractFromParameter(parameter)[2];
-  const referenceCurrency = subscribesForExchange.get(currency);
-  unsubscribeFromTickerOnWs(currency, referenceCurrency);
-  subscribesForExchange.delete(currency);
-  const exchangeCurrency = exchangeDependencies.get(referenceCurrency);
-  if (exchangeCurrency) {
-    exchangeCurrency.delete(currency);
-    // doesn't have dependencies and don't have ticker
-    if (exchangeCurrency.size == 0 && !tickersHandlers.get(referenceCurrency)) {
-      unsubscribeFromTickerOnWs(referenceCurrency, "USD");
+  const fromCoin = extractFromParameter(parameter)[2];
+  const toCoin = subscribesForExchange.get(fromCoin);
+  if (!toCoin) {
+    return;
+  }
+
+  unsubscribeFromCoinOnWs(fromCoin, toCoin);
+  subscribesForExchange.delete(fromCoin);
+
+  const exchangeCoins = exchangeDependencies.get(toCoin);
+  if (exchangeCoins) {
+    exchangeCoins.delete(fromCoin);
+
+    if (
+      exchangeCoins.size == 0 &&
+      tickersHandlers.get(toCoin) &&
+      tickersHandlers.get(toCoin).length == 0
+    ) {
+      unsubscribeFromCoinOnWs(toCoin);
     }
   }
 }
 
 function handleUnsubscribed(parameter) {
-  const [currency, referenceCurrency] = extractFromParameter(parameter).slice(
-    2,
-    4
-  );
-  const nextReference = exchangeRoute[referenceCurrency];
+  const [fromCoin, toCoin] = extractFromParameter(parameter).slice(2, 4);
+  if (subscribesForExchange.get(fromCoin)) {
+    return;
+  }
+  const nextReference = exchangeRoute[toCoin];
+  console.log(fromCoin, toCoin, nextReference);
   if (nextReference) {
-    subscribeToTickerOnWs(currency, nextReference);
+    subscribeToCoinOnWs(fromCoin, nextReference);
     return;
   }
-  const errorsHandlers = tickersErrorHandlers.get(currency) ?? [];
+
+  const errorsHandlers = tickersErrorHandlers.get(fromCoin) ?? [];
   errorsHandlers.forEach(fn => fn());
-  tickersErrorHandlers.delete(currency);
+  tickersErrorHandlers.delete(fromCoin);
 }
 
-function sendToWebSocket(message) {
-  const stringifiedMessage = JSON.stringify(message);
+// function addDependencyToWs(fromCoin, toCoin) {
+//   console.log(`add deps ${fromCoin} and ${toCoin}`);
+//   postMessageToWorker({
+//     command: "addDependency",
+//     data: { fromCoin: fromCoin, toCoin: toCoin },
+//     id: id
+//   });
+// }
 
-  if (socket.readyState === WebSocket.OPEN) {
-    socket.send(stringifiedMessage);
-    return;
-  }
-
-  socket.addEventListener(
-    "open",
-    () => {
-      socket.send(stringifiedMessage);
+function subscribeToCoinOnWs(fromCoin, toCoin = "USD") {
+  postMessageToWorker({
+    data: {
+      action: "SubAdd",
+      subs: [`5~CCCAGG~${fromCoin}~${toCoin}`]
     },
-    { once: true }
-  );
-}
-
-function subscribeToTickerOnWs(tickerName, currency = "USD") {
-  sendToWebSocket({
-    action: "SubAdd",
-    subs: [`5~CCCAGG~${tickerName}~${currency}`]
+    command: "sub",
+    coin: fromCoin,
+    id: id
   });
 }
 
-function unsubscribeFromTickerOnWs(tickerName, currency = "USD") {
-  sendToWebSocket({
-    action: "SubRemove",
-    subs: [`5~CCCAGG~${tickerName}~${currency}`]
+function unsubscribeFromCoinOnWs(fromCoin, toCoin = "USD") {
+  console.log(`UNSUB WS ${fromCoin} ${toCoin}`);
+  postMessageToWorker({
+    data: {
+      action: "SubRemove",
+      subs: [`5~CCCAGG~${fromCoin}~${toCoin}`]
+    },
+    command: "unsub",
+    coin: fromCoin,
+    id: id
   });
 }
 
-export const subscribeToTicker = (tickerName, cb, errorCb = undefined) => {
-  const subscribers = tickersHandlers.get(tickerName) || [];
-  tickersHandlers.set(tickerName, [...subscribers, cb]);
+export const subscribeToCoin = (coin, cb, errorCb = undefined) => {
+  const subscribers = tickersHandlers.get(coin) || [];
+  tickersHandlers.set(coin, [...subscribers, cb]);
 
   if (errorCb) {
-    const errors = tickersErrorHandlers.get(tickerName) || [];
-    tickersErrorHandlers.set(tickerName, [...errors, errorCb]);
+    const errors = tickersErrorHandlers.get(coin) || [];
+    tickersErrorHandlers.set(coin, [...errors, errorCb]);
   }
+  console.log(id, coin);
 
-  subscribeToTickerOnWs(tickerName, "USD");
+  subscribeToCoinOnWs(coin, "USD");
 };
 
-export const unsubscribeFromTicker = tickerName => {
-  tickersHandlers.delete(tickerName);
-  tickersErrorHandlers.delete(tickerName);
-  console.log(exchangeDependencies.get(tickerName));
-  const exchangeCurrency = exchangeDependencies.get(tickerName);
-  if (exchangeCurrency && exchangeCurrency.size == 0) {
-    unsubscribeFromTickerOnWs(tickerName);
-  }
+export const unsubscribeFromCoin = coin => {
+  console.log(`UNSUB MAIN ${coin}`);
+  tickersHandlers.delete(coin);
+  tickersErrorHandlers.delete(coin);
+
+  unsubscribeFromCoinOnWs(coin);
 };
 
 export const loadAllCoins = () => fetch(ALL_COINS_URL).then(r => r.json());
+
+window.exchangeDependencies = exchangeDependencies;
+
+addEventListener("beforeunload", () => {
+  worker.port.postMessage({ command: "closing", id: id });
+});
