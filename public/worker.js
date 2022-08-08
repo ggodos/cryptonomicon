@@ -56,6 +56,9 @@ self.onconnect = function (e) {
       case "sub":
         handleSubscribe(coin, id, data, port);
         break;
+      case "addDependency":
+        handleAddDependency();
+        break;
       case "unsub":
         handleUnsubscribe(coin, id, data);
         break;
@@ -66,11 +69,14 @@ self.onconnect = function (e) {
   };
 };
 
+function handleAddDependency() {
+  return;
+}
+
 function handleSubscribe(coin, id, data, port) {
   if (!id) {
     return;
   }
-
   console.log(`Sub to ${coin} from ${id}`);
 
   idToPortMap.set(id, port);

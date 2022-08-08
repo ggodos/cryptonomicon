@@ -52,7 +52,7 @@ function handleMessageFromPort(data) {
   // );
 
   if (message == ALREADY_ACTIVE) {
-    // handleAlreadyActive(parameter);
+    handleAlreadyActive(parameter);
     return;
   }
 
@@ -101,12 +101,12 @@ function extractFromParameter(parameter) {
   return parameter.split("~");
 }
 
-// function handleAlreadyActive(parameter) {
-//   const [fromCoin, toCoin] = extractFromParameter(parameter).slice(2, 4);
-//   if (toCoin != "USD") {
-//     addDependencyToWs(fromCoin, toCoin);
-//   }
-// }
+function handleAlreadyActive(parameter) {
+  const [fromCoin, toCoin] = extractFromParameter(parameter).slice(2, 4);
+  if (toCoin != "USD") {
+    addDependencyToWs(fromCoin, toCoin);
+  }
+}
 
 function useCrossExchange(fromCoin, toCoin, price) {
   if (!exchangeDependencies.get(toCoin)) {
@@ -115,7 +115,7 @@ function useCrossExchange(fromCoin, toCoin, price) {
 
   subscribesForExchange.set(fromCoin, toCoin);
   exchangeDependencies.get(toCoin).set(fromCoin, 1 / price);
-  // addDependencyToWs(fromCoin, toCoin);
+  addDependencyToWs(fromCoin, toCoin);
   subscribeToCoinOnWs(toCoin, "USD");
 }
 
@@ -160,14 +160,14 @@ function handleUnsubscribed(parameter) {
   tickersErrorHandlers.delete(fromCoin);
 }
 
-// function addDependencyToWs(fromCoin, toCoin) {
-//   console.log(`add deps ${fromCoin} and ${toCoin}`);
-//   postMessageToWorker({
-//     command: "addDependency",
-//     data: { fromCoin: fromCoin, toCoin: toCoin },
-//     id: id
-//   });
-// }
+function addDependencyToWs(fromCoin, toCoin) {
+  console.log(`add deps ${fromCoin} and ${toCoin}`);
+  postMessageToWorker({
+    command: "addDependency",
+    data: { fromCoin: fromCoin, toCoin: toCoin },
+    id: id
+  });
+}
 
 function subscribeToCoinOnWs(fromCoin, toCoin = "USD") {
   postMessageToWorker({
