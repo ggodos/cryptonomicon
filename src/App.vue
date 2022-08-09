@@ -200,7 +200,7 @@
 </template>
 
 <script>
-import { loadAllCoins, subscribeToTicker, unsubscribeFromTicker } from "./api";
+import { loadAllCoins, subscribeToCoin, unsubscribeFromCoin } from "./api";
 
 const VISIBLE_TICKERS = 6;
 const COMPLETES_QUANTITY = 4;
@@ -287,7 +287,7 @@ export default {
       this.filter = "";
       this.ticker = "";
 
-      subscribeToTicker(
+      subscribeToCoin(
         currentTicker.name,
         newPrice => this.updateTicker(currentTicker.name, newPrice),
         () => this.changeTickerValidity(currentTicker.name, false)
@@ -311,7 +311,7 @@ export default {
         this.selectedTicker = null;
       }
       if (tickerToRemove.tickerValid) {
-        unsubscribeFromTicker(tickerToRemove.name);
+        unsubscribeFromCoin(tickerToRemove.name);
       }
     },
 
@@ -424,7 +424,7 @@ export default {
     if (tickersData) {
       this.tickers = JSON.parse(tickersData);
       this.tickers.forEach(ticker => {
-        subscribeToTicker(
+        subscribeToCoin(
           ticker.name,
           newPrice => this.updateTicker(ticker.name, newPrice),
           () => this.changeTickerValidity(ticker.name, false)
