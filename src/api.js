@@ -30,7 +30,6 @@ const AGGREGATE_INDEX = "5";
 const INVALID_SUB_INDEX = "500";
 const INVALID_SUB_MESSAGE = "INVALID_SUB";
 const SUBSCRIBTION_UNRECOGNIZED = "SUBSCRIPTION_UNRECOGNIZED";
-const ALREADY_ACTIVE = "SUBSCRIPTION_ALREADY_ACTIVE";
 
 // Handle web socket messages
 worker.port.start();
@@ -47,14 +46,6 @@ function handleMessageFromPort(data) {
     PRICE: newPrice,
     PARAMETER: parameter
   } = data;
-  // console.log(
-  //   `type: ${type}\nfrom: ${fromCoin}\nto: ${toCoin}\nprice: ${newPrice}\n`
-  // );
-
-  if (message == ALREADY_ACTIVE) {
-    handleAlreadyActive(parameter);
-    return;
-  }
 
   // can't subscribe
   if (type == INVALID_SUB_INDEX && message == INVALID_SUB_MESSAGE) {
@@ -101,13 +92,6 @@ function extractFromParameter(parameter) {
   return parameter.split("~");
 }
 
-function handleAlreadyActive(parameter) {
-  const [fromCoin, toCoin] = extractFromParameter(parameter).slice(2, 4);
-  if (toCoin != "USD") {
-    addDependencyToWs(fromCoin, toCoin);
-  }
-}
-
 function useCrossExchange(fromCoin, toCoin, price) {
   if (!exchangeDependencies.get(toCoin)) {
     exchangeDependencies.set(toCoin, new Map());
@@ -149,7 +133,6 @@ function handleUnsubscribed(parameter) {
   }
 
   const nextReference = exchangeRoute[toCoin];
-  console.log(fromCoin, toCoin, nextReference);
   if (nextReference) {
     subscribeToCoinOnWs(fromCoin, nextReference);
     return;
@@ -158,16 +141,6 @@ function handleUnsubscribed(parameter) {
   const errorsHandlers = tickersErrorHandlers.get(fromCoin) ?? [];
   errorsHandlers.forEach(fn => fn());
   tickersErrorHandlers.delete(fromCoin);
-}
-
-function addDependencyToWs(fromCoin, toCoin) {
-  // console.log(`add deps ${fromCoin} and ${toCoin}`);
-  postMessageToWorker({
-    command: "addDependency",
-    fromCoin: fromCoin,
-    toCoin: toCoin,
-    id: id
-  });
 }
 
 function subscribeToCoinOnWs(fromCoin, toCoin = "USD") {
@@ -184,7 +157,6 @@ function subscribeToCoinOnWs(fromCoin, toCoin = "USD") {
 }
 
 function unsubscribeFromCoinOnWs(fromCoin, toCoin = "USD") {
-  // console.log(`UNSUB WS ${fromCoin} ${toCoin}`);
   postMessageToWorker({
     data: {
       action: "SubRemove",
@@ -209,7 +181,6 @@ export const subscribeToCoin = (coin, cb, errorCb = undefined) => {
 };
 
 export const unsubscribeFromCoin = coin => {
-  // console.log(`UNSUB MAIN ${coin}`);
   tickersHandlers.delete(coin);
   tickersErrorHandlers.delete(coin);
 
