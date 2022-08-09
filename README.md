@@ -30,6 +30,6 @@ See [Configuration Reference](https://cli.vuejs.org/config/).
 
 ## TODO
 
-- [ ] SharedWorkers (Для работы нескольких вкладок)
+- [x] SharedWorkers (Для работы нескольких вкладок)
 - [ ] LocalStorage и анонимные вкладки
 - [ ] Рефактор графа
