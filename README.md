@@ -34,6 +34,6 @@ See [Configuration Reference](https://cli.vuejs.org/config/).
 - [ ] LocalStorage и анонимные вкладки
 - [ ] Рефактор графа
 
-## :warning: Cryptonomicon не работает в браузерахd которые не поддерживают работу SharedWorker.
+## :warning: Cryptonomicon не работает в браузерах которые не поддерживают работу SharedWorker.
 https://caniuse.com/sharedworkers
 
