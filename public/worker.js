@@ -80,7 +80,6 @@ self.onconnect = function (e) {
 };
 
 function handleSubscribe(data, id, coin, currency) {
-  // console.log(`Sub to ${coin} from ${id}`);
   // TODO: if dependencies.get(coin) use saved
 
   coinsSubscribes.get(coin).add(id);
@@ -97,20 +96,7 @@ function handleSubscribe(data, id, coin, currency) {
   }
 }
 
-// eslint-disable-next-line no-unused-vars
 function handleUnsubscribe(data, id, coin, refCurrency) {
-  // if exchange refCurrency "USD"
-  //   if refCurrency in ["BTC", "ETH"]
-  //     coin("BTC") have thing that depends on him?
-  //     yes: none
-  //     no: ws.unsub(coin, "USD") // sendToWebSocket(data);
-  //   else
-  //     ws.unsub(coin, "USD")
-  //
-  // else if refCUrrency == "USD"
-  //   ws.unsub(coin, refCurrency) // sendToWebSocket(data);
-  //   unsubOnWs(data, id, refCurrency, "USD")
-  // console.log(coin, refCurrency, exchangeDeps, dependencies, coinsSubscribes);
   coinsSubscribes.get(coin).delete(id);
   if (coinsSubscribes.get(coin).size > 0) {
     return;
@@ -120,20 +106,18 @@ function handleUnsubscribe(data, id, coin, refCurrency) {
     if (exchangeCoins.includes(coin)) {
       // "BTC" -> "USD"
       if (exchangeDeps.get(coin).length == 0) {
-        sendToWebSocket(data); // Remove of exchange coin
+        sendToWebSocket(data); // Remove of exchange coin in ws
         selfSubed.add(coin);
       } // else doesn't remove
     } else {
       // "SHA" -> "USD"
       sendToWebSocket(data);
-      // TODO: remove deps
       // "BTC" = deps["SHA"]
       const exchangeCoin = dependencies.get(coin);
       if (exchangeCoin) {
         exchangeDeps.set(
-          exchangeCoin, // "BTC"
+          exchangeCoin,
           exchangeDeps.get(exchangeCoin).filter(v => v != coin)
-          // "BTC": [..., "SHA", ...] -> [..., ...]
         );
       }
     }
@@ -157,7 +141,6 @@ function handleClosing(id) {
   console.log(`closing port for id ${id}`);
 }
 
-// eslint-disable-next-line no-unused-vars
 function unsubOnWs(id, coin, refCurrency) {
   const data = {
     action: "SubRemove",
