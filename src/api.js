@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 
-const worker = new SharedWorker("/worker.js");
+const worker = new SharedWorker("/cryptonomicon/worker.js");
 const id = uuidv4();
 const ALL_COINS_URL =
   "https://min-api.cryptocompare.com/data/all/coinlist?summary=true";
