@@ -242,7 +242,7 @@ export default {
       this.maxGraphElements = this.$refs.graph.offsetWidth / 38;
     },
 
-    croppGraphElements() {
+    cutGraphElements() {
       this.calculateMaxGraphElements();
       if (this.graph.length > this.maxGraphElements) {
         this.graph = this.graph.slice(0, this.maxGraphElements);
@@ -406,12 +406,12 @@ export default {
 
   mounted() {
     window.addEventListener("resize", this.calculateMaxGraphElements);
-    window.addEventListener("resize", this.croppGraphElements);
+    window.addEventListener("resize", this.cutGraphElements);
   },
 
   beforeMount() {
     window.removeEventListener("resize", this.calculateMaxGraphElements);
-    window.removeEventListener("resize", this.croppGraphElements);
+    window.removeEventListener("resize", this.cutGraphElements);
   },
 
   watch: {
