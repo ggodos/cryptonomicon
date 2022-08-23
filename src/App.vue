@@ -240,10 +240,7 @@ export default {
         return;
       }
       this.maxGraphElements = this.$refs.graph.offsetWidth / 38;
-    },
 
-    cutGraphElements() {
-      this.calculateMaxGraphElements();
       if (this.graph.length > this.maxGraphElements) {
         this.graph = this.graph.slice(0, this.maxGraphElements);
       }
@@ -340,7 +337,6 @@ export default {
 
     select(ticker) {
       this.selectedTicker = ticker;
-      this.calculateMaxGraphElements();
     }
   },
 
@@ -406,17 +402,16 @@ export default {
 
   mounted() {
     window.addEventListener("resize", this.calculateMaxGraphElements);
-    window.addEventListener("resize", this.cutGraphElements);
   },
 
   beforeMount() {
     window.removeEventListener("resize", this.calculateMaxGraphElements);
-    window.removeEventListener("resize", this.cutGraphElements);
   },
 
   watch: {
     selectedTicker() {
       this.graph = [];
+      this.$nextTick().then(this.calculateMaxGraphElements);
     },
 
     tickers() {
