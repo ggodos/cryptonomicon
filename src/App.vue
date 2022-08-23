@@ -27,66 +27,11 @@
     </div>
 
     <div class="container">
-      <section>
-        <div class="flex">
-          <div class="max-w-xs">
-            <label for="wallet" class="block text-sm font-medium text-gray-700"
-              >Тикер {{ ticker }}</label
-            >
-            <div class="mt-1 relative rounded-md shadow-md">
-              <input
-                v-model="ticker"
-                @keydown.enter="add"
-                @keyup="completesUpdate"
-                type="text"
-                name="wallet"
-                id="wallet"
-                class="block w-full pr-10 border-gray-300 text-gray-900 focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm rounded-md"
-                placeholder="Например DOGE"
-              />
-              <div
-                v-if="tickerCompletes.length"
-                class="flex bg-white shadow-md p-1 rounded-md flex-wrap"
-              >
-                <span
-                  v-for="(item, i) in tickerCompletes"
-                  :key="i"
-                  @click="completeAdd(item)"
-                  class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-                >
-                  {{ item }}
-                </span>
-              </div>
-              <div v-if="tickerAlreadyExist" class="text-sm text-red-600">
-                Тикер уже добавлен
-              </div>
-              <div v-if="tickerInvalid" class="text-sm text-red-600">
-                Тикер не корректен
-              </div>
-            </div>
-          </div>
-        </div>
-        <button
-          @click="add"
-          type="button"
-          class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-        >
-          <!-- Heroicon name: solid/mail -->
-          <svg
-            class="-ml-0.5 mr-2 h-6 w-6"
-            xmlns="http://www.w3.org/2000/svg"
-            width="30"
-            height="30"
-            viewBox="0 0 24 24"
-            fill="#ffffff"
-          >
-            <path
-              d="M13 7h-2v4H7v2h4v4h2v-4h4v-2h-4V7zm-1-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"
-            ></path>
-          </svg>
-          Добавить
-        </button>
-      </section>
+      <add-ticker
+        @add-ticker="add"
+        :coins="this.coins"
+        :tickersNames="this.tickers.map(t => t.name)"
+      />
 
       <template v-if="tickers.length">
         <hr class="w-full border-t border-gray-600 my-4" />
@@ -204,9 +149,9 @@
 
 <script>
 import { loadAllCoins, subscribeToCoin, unsubscribeFromCoin } from "./api";
+import AddTicker from "./components/AddTicker.vue";
 
 const VISIBLE_TICKERS = 6;
-const COMPLETES_QUANTITY = 4;
 const MIN_GRAPH_SIZE_PERCENT = 5;
 const PRICE_FIXED_DECIMAL = 2;
 const LOW_PRICE_PRECISION = 4;
@@ -214,9 +159,12 @@ const LOW_PRICE_PRECISION = 4;
 export default {
   name: "App",
 
+  components: {
+    AddTicker
+  },
+
   data() {
     return {
-      ticker: "",
       filter: "",
 
       tickers: [],
@@ -227,10 +175,7 @@ export default {
 
       page: 1,
 
-      coins: [],
-      tickerCompletes: [],
-      tickerAlreadyExist: false,
-      tickerInvalid: false
+      coins: []
     };
   },
 
@@ -280,49 +225,21 @@ export default {
         : price.toPrecision(LOW_PRICE_PRECISION);
     },
 
-    completeAdd(completeName) {
-      this.ticker = completeName;
-      this.add();
-      this.completesUpdate();
-    },
-
-    add() {
-      this.tickerInvalid = !this.isTickerValid;
-      if (this.tickerInvalid) {
-        return;
-      }
-
-      this.tickerAlreadyExist = this.isTickerRepeated;
-      if (this.tickerAlreadyExist) {
-        return;
-      }
-
+    add(ticker) {
       const currentTicker = {
-        name: this.normalizedTicker,
+        name: ticker.toUpperCase(),
         price: "-",
         tickerValid: true
       };
 
       this.tickers = [...this.tickers, currentTicker];
       this.filter = "";
-      this.ticker = "";
 
       subscribeToCoin(
         currentTicker.name,
         newPrice => this.updateTicker(currentTicker.name, newPrice),
         () => this.changeTickerValidity(currentTicker.name, false)
       );
-    },
-
-    completesUpdate() {
-      if (this.normalizedTicker === "") {
-        this.tickerCompletes = [];
-        return;
-      }
-
-      this.tickerCompletes = this.coins
-        .filter(coin => coin.startsWith(this.normalizedTicker))
-        .slice(0, COMPLETES_QUANTITY);
     },
 
     handleDelete(tickerToRemove) {
@@ -341,19 +258,6 @@ export default {
   },
 
   computed: {
-    normalizedTicker() {
-      return this.ticker.toUpperCase();
-    },
-
-    isTickerValid() {
-      const tickerToCheck = this.normalizedTicker;
-      return this.coins.some(c => c == tickerToCheck);
-    },
-
-    isTickerRepeated() {
-      return this.tickers.some(t => t.name === this.normalizedTicker);
-    },
-
     startIndex() {
       return (this.page - 1) * VISIBLE_TICKERS;
     },
