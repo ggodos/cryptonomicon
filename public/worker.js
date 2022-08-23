@@ -80,8 +80,6 @@ self.onconnect = function (e) {
 };
 
 function handleSubscribe(data, id, coin, currency) {
-  // TODO: if dependencies.get(coin) use saved
-
   coinsSubscribes.get(coin).add(id);
   sendToWebSocket(data);
 
