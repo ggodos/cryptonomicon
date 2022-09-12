@@ -32,28 +32,28 @@ export default {
   props: {
     selectedTicker: {
       required: true
+    },
+
+    graph: {
+      type: Array,
+      required: true
     }
+  },
+
+  emits: {
+    "close:graph": null,
+    "update:graph": null
   },
 
   data() {
     return {
-      graph: [],
       maxGraphElements: 1
     };
   },
 
   methods: {
     closeGraph() {
-      this.$emit("close-graph");
-    },
-
-    addPrice(price) {
-      this.graph.push(price);
-      if (this.graph.length > this.maxGraphElements) {
-        this.graph = this.graph.slice(
-          this.graph.length - this.maxGraphElements
-        );
-      }
+      this.$emit("close:graph");
     },
 
     calculateMaxGraphElements() {
@@ -63,15 +63,8 @@ export default {
       this.maxGraphElements = this.$refs.graph.offsetWidth / 38;
 
       if (this.graph.length > this.maxGraphElements) {
-        this.graph = this.graph.slice(0, this.maxGraphElements);
+        this.$emit("update:graph", this.graph.slice(0, this.maxGraphElements));
       }
-    }
-  },
-
-  watch: {
-    selectedTicker() {
-      this.graph = [];
-      this.$nextTick().then(this.calculateMaxGraphElements);
     }
   },
 

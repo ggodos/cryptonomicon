@@ -102,7 +102,9 @@
 
       <selected-ticker-graph
         ref="graph"
-        @close-graph="this.selectedTicker = null"
+        v-model:graph="graph"
+        :graph="this.graph"
+        @close:graph="this.selectedTicker = null"
         :selectedTicker="this.selectedTicker"
       />
     </div>
@@ -131,6 +133,7 @@ export default {
       filter: "",
       page: 1,
 
+      graph: [],
       tickers: [],
       selectedTicker: null,
 
@@ -144,7 +147,12 @@ export default {
         .filter(t => t.name === ticker)
         .forEach(t => {
           if (t === this.selectedTicker) {
-            this.$refs.graph.addPrice(price);
+            this.graph.push(price);
+            if (this.graph.length > this.maxGraphElements) {
+              this.graph = this.graph.slice(
+                this.graph.length - this.maxGraphElements
+              );
+            }
           }
           t.price = price;
         });
@@ -234,6 +242,11 @@ export default {
   watch: {
     tickers() {
       localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
+    },
+
+    selectedTicker() {
+      this.graph = [];
+      this.$nextTick().then(this.calculateMaxGraphElements);
     },
 
     paginatedTickers() {
